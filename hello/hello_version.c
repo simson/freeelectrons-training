@@ -14,17 +14,17 @@ static int __init hello_init(void)
 	struct new_utsname * name;
 	name =  utsname();
 	pr_alert("Version sysname %s, \
-	nodename %s, \
-	release %s, \
-	version %s, \
-	machine %s, \
-	domainname %s\n",
-	name->sysname,
-	name->nodename,
-	name->release,
-	name->version,
-	name->machine,
-	name->domainname);
+		 nodename %s, \
+		 release %s, \
+		 version %s, \
+		 machine %s, \
+		 domainname %s\n",
+		 name->sysname,
+		 name->nodename,
+		 name->release,
+		 name->version,
+		 name->machine,
+		 name->domainname);
 	for(i = 0; i < howmany; i++)
 	{
 		pr_alert("%d/%d Test %s \n", i, howmany, message);
