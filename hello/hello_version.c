@@ -4,10 +4,9 @@
 #include <linux/utsname.h>
 
 static char* message  = "TEST";
-module_param(message, charp,0);
+module_param(message, charp, S_IRUGO| S_IWUSR);
 static int howmany = 1;
-module_param(howmany, int, 0);
-
+module_param(howmany, int, S_IRUGO| S_IWUSR);
 
 static int __init hello_init(void)
 {
