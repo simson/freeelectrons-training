@@ -21,15 +21,19 @@ MODULE_DEVICE_TABLE(of, nunchuk_dt_ids);
 #endif
 
 static int last_idx = 0;
+struct nunchuk_state {
+		char x_pos;
+		char y_pos;
+		short acc_x;
+		short acc_y;
+		short acc_z;
+		char c_pressed;
+		char z_pressed;
+	};
+
 struct nunchuk_info {
 	int idx;
-	char x_pos;
-	char y_pos;
-	short acc_x;
-	short acc_y;
-	short acc_z;
-	char c_pressed;
-	char z_pressed;
+	struct nunchuk_state state;
 };
 
 static int handshake(struct i2c_client *client)
@@ -39,60 +43,58 @@ static int handshake(struct i2c_client *client)
 	char init_msg[] = { 0xfb , 0x00 };
 		/* Send the uncrypted communication message */
 	ret = i2c_master_send(client, uncrypted_msg, 2);
-	pr_alert("I2c transfer returned %d\n", ret);
-	if (ret != 1) {
+	if (ret != 2) {
 		pr_alert("I2c transfer failed\n");
+		return -EIO;
 	}
 	udelay(1000);
 	/*Complete the init */
 	ret = i2c_master_send(client, init_msg, 2);
-	pr_alert("I2c transfer returned %d\n", ret);
-	if (ret != 1) {
+	if (ret != 2) {
 		pr_alert("I2c transfer failed\n");
+		return -EIO;
 	}
 	return 0;
 }
 
-static int nunchuk_read_registers(struct i2c_client *client)
+static int nunchuk_read_registers(struct i2c_client *client, struct nunchuk_state* n_state)
 {
 	char read_msg[] = { 0x00 };
 	char state[6] = { 0x00 };
 	int ret;
 	mdelay(10);
 	ret = i2c_master_send(client, read_msg, 1);
-	pr_alert("I2c transfer returned %d\n", ret);
 	if (ret != 1) {
 		pr_alert("I2c transfer failed\n");
 		return -EIO;
 	}
 	mdelay(10);
 	ret = i2c_master_recv(client, state, 6);
-	pr_alert("I2c transfer returned %d\n", ret);
 	if (ret != 6) {
 		pr_alert("I2c transfer failed\n");
 		return -EIO;
 	}
-	struct nunchuk_info* pdata = i2c_get_clientdata(client);
-	pdata->x_pos = state[0] ;
-	pdata->y_pos = state[1];
-	pdata->acc_x = (state[2] << 2) | ( ( state[5] & 0x0C ) >> 2 );
-	pdata->acc_y = (state[3] << 2) | ( ( state[5] & 0x30 ) >> 4 );
-	pdata->acc_z = (state[4] << 2) | ( ( state[5] & 0xC0 ) >> 6 );
-	pdata->c_pressed = ! ( (state[5] & 0x2 ) >> 1);
-	pdata->z_pressed = ! (state[5] & 0x1 );
+	n_state->x_pos = state[0] ;
+	n_state->y_pos = state[1];
+	n_state->acc_x = (state[2] << 2) | ( ( state[5] & 0x0C ) >> 2 );
+	n_state->acc_y = (state[3] << 2) | ( ( state[5] & 0x30 ) >> 4 );
+	n_state->acc_z = (state[4] << 2) | ( ( state[5] & 0xC0 ) >> 6 );
+	n_state->c_pressed = ! ( (state[5] & 0x2 ) >> 1);
+	n_state->z_pressed = ! (state[5] & 0x1 );
 	return 0;
 }
 
-static int nunchuk_display_state(struct nunchuk_info *pdata)
+static int nunchuk_display_state(struct nunchuk_state *n_state)
 {
 	pr_alert("X = %hhu\nY = %hhu\nAcc_X = %hu\nAcc_Y = %hu\nAcc_Z = %hu\nC = %hhu\nZ = %hhu\n",
-	 pdata->x_pos,
-	 pdata->y_pos,
-	 pdata->acc_x,
-	 pdata->acc_y,
-	 pdata->acc_z,
-	 pdata->c_pressed,
-	 pdata->z_pressed);
+	 n_state->x_pos,
+	 n_state->y_pos,
+	 n_state->acc_x,
+	 n_state->acc_y,
+	 n_state->acc_z,
+	 n_state->c_pressed,
+	 n_state->z_pressed);
+	return 0;
 }
 
 static int nunchuk_probe(struct i2c_client *client,
@@ -105,11 +107,19 @@ static int nunchuk_probe(struct i2c_client *client,
 	/* register to a kernel framework */
 	i2c_set_clientdata(client, pdata);
 	pr_alert("Nunchuk detected id : %d/%d\n",pdata->idx,last_idx);
+	struct nunchuk_state new_state;
 	while(1){
-		nunchuk_read_registers(client);
-		nunchuk_read_registers(client);
-		nunchuk_display_state(pdata);
-		mdelay(1000);
+		nunchuk_read_registers(client, &(new_state));
+		nunchuk_read_registers(client, &(new_state));
+		if(memcmp(&(pdata->state),
+			  &new_state, sizeof(struct nunchuk_state) ))
+		{
+			memcpy(&(pdata->state), &new_state,
+			       sizeof(struct nunchuk_state));
+			nunchuk_display_state(&(pdata->state));
+		}
+
+		mdelay(1);
 	}
 
 	return 0;
