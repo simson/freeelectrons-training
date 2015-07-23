@@ -135,6 +135,7 @@ static int nunchuk_probe(struct i2c_client *client,
 
 	/* initialize device */
 	handshake(nunchuk);
+/*
 	while(1){
 		if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
 		{
@@ -166,7 +167,7 @@ static int nunchuk_probe(struct i2c_client *client,
 
 		mdelay(1);
 	}
-
+*/
 	return 0;
 
 out_input_polled_device:
