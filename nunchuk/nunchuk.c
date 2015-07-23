@@ -3,6 +3,7 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/input-polldev.h>
 
 static const struct i2c_device_id nunchuk_id[] = {
 	{ "nunchuk", 0 },
@@ -100,7 +101,13 @@ static int nunchuk_display_state(struct nunchuk_state *n_state)
 static int nunchuk_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
+	struct input_polled_dev* polled_input;
+	struct input_dev * input;
 	struct nunchuk_info* pdata;
+
+	polled_input = input_allocate_polled_device();
+	input_register_polled_device(polled_input);
+
 	/* initialize device */
 	handshake(client);
 	pdata = kmalloc(sizeof(struct nunchuk_info), GFP_KERNEL);
