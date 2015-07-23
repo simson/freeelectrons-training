@@ -121,6 +121,9 @@ static void nunchuk_poll(struct input_polled_dev *dev)
 	{
 		memcpy(&(nunchuk->state), &new_state,
 		       sizeof(struct nunchuk_state));
+
+		input_report_abs(dev->input, ABS_X, nunchuk->state.x_pos);
+		input_report_abs(dev->input, ABS_Y, nunchuk->state.y_pos);
 		input_event(dev->input, EV_KEY, BTN_C,
 			    nunchuk->state.c_pressed);
 		input_event(dev->input, EV_KEY, BTN_Z,
@@ -163,9 +166,14 @@ static int nunchuk_probe(struct i2c_client *client,
 
 	input->name = "Wii nunchuk";
 	input->id.bustype = BUS_I2C;
+	set_bit(ABS_X, input->absbit); /* joystick */
+	set_bit(ABS_Y, input->absbit);
 	set_bit(EV_KEY, input->evbit);
 	set_bit(BTN_C, input->keybit);
 	set_bit(BTN_Z, input->keybit);
+
+	input_set_abs_params(input, ABS_X, 30, 220, 4, 8);
+	input_set_abs_params(input, ABS_Y, 40, 200, 4, 8);
 	polled_input->poll = nunchuk_poll;
 	polled_input->poll_interval = 50;
 
