@@ -175,7 +175,7 @@ static int nunchuk_probe(struct i2c_client *client,
 	input_set_abs_params(input, ABS_X, 30, 220, 4, 8);
 	input_set_abs_params(input, ABS_Y, 40, 200, 4, 8);
 	polled_input->poll = nunchuk_poll;
-	polled_input->poll_interval = 50;
+	polled_input->poll_interval = 10;
 
 	nunchuk->idx = ++last_idx;
 	pr_info("Nunchuk detected id : %d/%d\n",nunchuk->idx,last_idx);
