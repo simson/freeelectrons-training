@@ -87,7 +87,7 @@ static int nunchuk_read_registers(struct i2c_client *client, struct nunchuk_stat
 
 static int nunchuk_display_state(struct nunchuk_state *n_state)
 {
-	pr_alert("X = %hhu\nY = %hhu\nAcc_X = %hu\nAcc_Y = %hu\nAcc_Z = %hu\nC = %hhu\nZ = %hhu\n",
+	pr_info("X = %hhu\nY = %hhu\nAcc_X = %hu\nAcc_Y = %hu\nAcc_Z = %hu\nC = %hhu\nZ = %hhu\n",
 	 n_state->x_pos,
 	 n_state->y_pos,
 	 n_state->acc_x,
@@ -136,10 +136,10 @@ static int nunchuk_probe(struct i2c_client *client,
 static int nunchuk_remove(struct i2c_client *client)
 {
 	struct nunchuk_info* pdata = i2c_get_clientdata(client);
-	pr_alert("Nunchuk will be removed id : %d/%d\n",pdata->idx,last_idx);
+	pr_info("Nunchuk will be removed id : %d/%d\n",pdata->idx,last_idx);
 	kfree(pdata);
 	last_idx--;
-	pr_alert("It remains %d nunchunk connected\n", last_idx);
+	pr_info("It remains %d nunchunk connected\n", last_idx);
 	/* unregister device from kernel framework */
 	/* shut down the device */
 	return 0;
