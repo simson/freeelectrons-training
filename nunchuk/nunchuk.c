@@ -90,13 +90,13 @@ static int nunchuk_read_registers(struct nunchuk_dev *dev, struct nunchuk_state*
 static int nunchuk_display_state(struct nunchuk_state *n_state)
 {
 	pr_info("X = %hhu\nY = %hhu\nAcc_X = %hu\nAcc_Y = %hu\nAcc_Z = %hu\nC = %hhu\nZ = %hhu\n",
-	 n_state->x_pos,
-	 n_state->y_pos,
-	 n_state->acc_x,
-	 n_state->acc_y,
-	 n_state->acc_z,
-	 n_state->c_pressed,
-	 n_state->z_pressed);
+		n_state->x_pos,
+		n_state->y_pos,
+		n_state->acc_x,
+		n_state->acc_y,
+		n_state->acc_z,
+		n_state->c_pressed,
+		n_state->z_pressed);
 	return 0;
 }
 
