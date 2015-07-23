@@ -23,14 +23,14 @@ MODULE_DEVICE_TABLE(of, nunchuk_dt_ids);
 
 static int last_idx = 0;
 struct nunchuk_state {
-		char x_pos;
-		char y_pos;
-		short acc_x;
-		short acc_y;
-		short acc_z;
-		char c_pressed;
-		char z_pressed;
-	};
+	char x_pos;
+	char y_pos;
+	short acc_x;
+	short acc_y;
+	short acc_z;
+	char c_pressed;
+	char z_pressed;
+};
 
 struct nunchuk_info {
 	int idx;
