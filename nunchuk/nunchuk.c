@@ -3,6 +3,7 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/input.h>
 #include <linux/input-polldev.h>
 
 static const struct i2c_device_id nunchuk_id[] = {
@@ -100,6 +101,36 @@ static int nunchuk_display_state(struct nunchuk_state *n_state)
 	return 0;
 }
 
+static void nunchuk_poll(struct input_polled_dev *dev)
+{
+	struct nunchuk_dev *nunchuk = dev->private;
+	struct i2c_client *client = nunchuk->i2c_client;
+	struct nunchuk_state new_state;
+	int ret;
+
+	if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
+	{
+		dev_err(&client->dev, "Reading Nunchuk register failed\n");
+	}
+	if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
+	{
+		dev_err(&client->dev, "Reading Nunchuk register failed\n");
+	}
+	if(memcmp(&(nunchuk->state),
+		  &new_state, sizeof(struct nunchuk_state) ))
+	{
+		memcpy(&(nunchuk->state), &new_state,
+		       sizeof(struct nunchuk_state));
+		input_event(dev->input, EV_KEY, BTN_C,
+			    nunchuk->state.c_pressed);
+		input_event(dev->input, EV_KEY, BTN_Z,
+			    nunchuk->state.z_pressed);
+		input_sync(dev->input);
+	}
+
+
+
+}
 static int nunchuk_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -116,61 +147,75 @@ static int nunchuk_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 	polled_input = input_allocate_polled_device();
-	if (polled_input == NULL)
+	if (!polled_input)
+	{
+		dev_err(&client->dev, "Failed to allocate memory\n");
 		goto out_nofree;
-
-	if( input_register_polled_device(polled_input) < 0)
-		goto out_input_polled_device;
+	}
 
 	nunchuk->i2c_client = client;
-	nunchuk->polled_input= polled_input;
+	nunchuk->polled_input = polled_input;
 	polled_input->private = nunchuk;
 	/* register to a kernel framework */
 	i2c_set_clientdata(client, nunchuk);
 	input = polled_input->input;
 	input->dev.parent = &client->dev;
+	
+	input->name = "Wii nunchuk";
+	input->id.bustype = BUS_I2C;
+	set_bit(EV_KEY, input->evbit);
+	set_bit(BTN_C, input->keybit);
+	set_bit(BTN_Z, input->keybit);
+	polled_input->poll = nunchuk_poll;
+	polled_input->poll_interval = 50;
 
 	nunchuk->idx = ++last_idx;
 	pr_info("Nunchuk detected id : %d/%d\n",nunchuk->idx,last_idx);
 
+	if( input_register_polled_device(polled_input) < 0)
+		goto out_input_polled_device;
+
 	/* initialize device */
 	handshake(nunchuk);
-/*
-	while(1){
-		if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
-		{
-			dev_err(&client->dev, "Reading Nunchuk register failed\n");
-			while( (ret = handshake(nunchuk)) < 0)
-			{
-				mdelay(10);
-				pr_info("Retrying\n");
-			}
+	/*
+	   while(1){
 
-		}
-		if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
-		{
-			dev_err(&client->dev, "Reading Nunchuk register failed\n");
-			while( (ret = handshake(nunchuk)) < 0)
-			{
-				mdelay(10);
-				pr_info("Retrying\n");
-			}
+	   if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
+	   {
+	   dev_err(&client->dev, "Reading Nunchuk register failed\n");
+	   while( (ret = handshake(nunchuk)) < 0)
+	   {
+	   mdelay(10);
+	   pr_info("Retrying\n");
+	   }
 
-		}
-		if(memcmp(&(nunchuk->state),
-			  &new_state, sizeof(struct nunchuk_state) ))
-		{
-			memcpy(&(nunchuk->state), &new_state,
-			       sizeof(struct nunchuk_state));
-			nunchuk_display_state(&(nunchuk->state));
-		}
+	   }
+	   if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
+	   {
+	   dev_err(&client->dev, "Reading Nunchuk register failed\n");
+	   while( (ret = handshake(nunchuk)) < 0)
+	   {
+	   mdelay(10);
+	   pr_info("Retrying\n");
+	   }
 
-		mdelay(1);
-	}
-*/
+	   }
+	   if(memcmp(&(nunchuk->state),
+	   &new_state, sizeof(struct nunchuk_state) ))
+	   {
+	   memcpy(&(nunchuk->state), &new_state,
+	   sizeof(struct nunchuk_state));
+	   nunchuk_display_state(&(nunchuk->state));
+	   }
+
+
+	   mdelay(1);
+	   }
+	   */
 	return 0;
 
 out_input_polled_device:
+	dev_err(&client->dev, "Free the polled_input strcuture\n");
 	input_free_polled_device(polled_input);
 out_nofree:
 	return -ENOMEM;
@@ -179,11 +224,25 @@ out_nofree:
 static int nunchuk_remove(struct i2c_client *client)
 {
 	struct nunchuk_dev* nunchuk = i2c_get_clientdata(client);
+	if(!nunchuk)
+	{
+		dev_err(&client->dev, "Failed to retrieve the device structure\n");
+		return -ENOMEM;
+	}
+
 	pr_info("Nunchuk will be removed id : %d/%d\n",nunchuk->idx,last_idx);
 	last_idx--;
-	pr_info("It remains %d nunchunk connected\n", last_idx);
+	pr_info("It remains %d nunchuk connected\n", last_idx);
 	/* unregister device from kernel framework */
-	input_register_polled_device(nunchuk->polled_input);
+	if(!nunchuk->polled_input)
+	{
+		dev_err(&client->dev, "Failed to retrieve the polled device structure\n");
+		return -ENOMEM;
+	}
+
+	pr_info("A = polled_input %p\n",nunchuk->polled_input->input);
+	input_unregister_polled_device(nunchuk->polled_input);
+	input_free_polled_device(nunchuk->polled_input);
 	/* shut down the device */
 	return 0;
 }
