@@ -107,11 +107,17 @@ static int nunchuk_probe(struct i2c_client *client,
 	struct nunchuk_state new_state;
 
 	polled_input = input_allocate_polled_device();
-	input_register_polled_device(polled_input);
+	if (polled_input == NULL)
+		goto out_nofree;
+
+	if( input_register_polled_device(polled_input) < 0)
+		goto out_input_polled_device;
 
 	/* initialize device */
 	handshake(client);
 	pdata = kmalloc(sizeof(struct nunchuk_info), GFP_KERNEL);
+	if (pdata == NULL)
+		goto out_input_polled_device;
 	pdata->idx = ++last_idx;
 	/* register to a kernel framework */
 	i2c_set_clientdata(client, pdata);
@@ -131,6 +137,13 @@ static int nunchuk_probe(struct i2c_client *client,
 	}
 
 	return 0;
+
+out_pdata:
+	kfree(pdata);
+out_input_polled_device:
+	input_free_polled_device(polled_input);
+out_nofree:
+	return -ENOMEM;
 }
 
 static int nunchuk_remove(struct i2c_client *client)
