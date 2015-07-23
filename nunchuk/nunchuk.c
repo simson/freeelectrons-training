@@ -104,6 +104,7 @@ static int nunchuk_probe(struct i2c_client *client,
 	struct input_polled_dev* polled_input;
 	struct input_dev * input;
 	struct nunchuk_info* pdata;
+	struct nunchuk_state new_state;
 
 	polled_input = input_allocate_polled_device();
 	input_register_polled_device(polled_input);
@@ -115,7 +116,6 @@ static int nunchuk_probe(struct i2c_client *client,
 	/* register to a kernel framework */
 	i2c_set_clientdata(client, pdata);
 	pr_alert("Nunchuk detected id : %d/%d\n",pdata->idx,last_idx);
-	struct nunchuk_state new_state;
 	while(1){
 		nunchuk_read_registers(client, &(new_state));
 		nunchuk_read_registers(client, &(new_state));
