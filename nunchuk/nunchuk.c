@@ -160,7 +160,7 @@ static int nunchuk_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, nunchuk);
 	input = polled_input->input;
 	input->dev.parent = &client->dev;
-	
+
 	input->name = "Wii nunchuk";
 	input->id.bustype = BUS_I2C;
 	set_bit(EV_KEY, input->evbit);
