@@ -80,11 +80,11 @@ static int nunchuk_read_registers(struct nunchuk_dev *dev, struct nunchuk_state*
 	}
 	n_state->x_pos = state[0] ;
 	n_state->y_pos = state[1];
-	n_state->acc_x = (state[2] << 2) | ( ( state[5] & 0x0C ) >> 2 );
-	n_state->acc_y = (state[3] << 2) | ( ( state[5] & 0x30 ) >> 4 );
-	n_state->acc_z = (state[4] << 2) | ( ( state[5] & 0xC0 ) >> 6 );
-	n_state->c_pressed = ! ( (state[5] & 0x2 ) >> 1);
-	n_state->z_pressed = ! (state[5] & 0x1 );
+	n_state->acc_x = (state[2] << 2) | ( ( state[5]  >> 2) & 0x3);
+	n_state->acc_y = (state[3] << 2) | ( ( state[5]  >> 4) & 0x3);
+	n_state->acc_z = (state[4] << 2) | ( ( state[5]  >> 6) & 0x3);
+	n_state->c_pressed = ! ( state[5] & 2 );
+	n_state->z_pressed = ! ( state[5] & 1 );
 	return 0;
 }
 
