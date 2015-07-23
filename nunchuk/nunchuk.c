@@ -105,6 +105,7 @@ static int nunchuk_probe(struct i2c_client *client,
 	struct input_dev * input;
 	struct nunchuk_info* pdata;
 	struct nunchuk_state new_state;
+	int ret;
 
 	polled_input = input_allocate_polled_device();
 	if (polled_input == NULL)
@@ -123,8 +124,26 @@ static int nunchuk_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, pdata);
 	pr_alert("Nunchuk detected id : %d/%d\n",pdata->idx,last_idx);
 	while(1){
-		nunchuk_read_registers(client, &(new_state));
-		nunchuk_read_registers(client, &(new_state));
+		if( (ret = nunchuk_read_registers(client, &(new_state))) < 0)
+		{
+			dev_err(&client->dev, "Reading Nunchuk register failed\n");
+			while( (ret = handshake(client)) < 0)
+			{
+				mdelay(10);
+				pr_info("Retrying\n");
+			}
+
+		}
+		if( (ret = nunchuk_read_registers(client, &(new_state))) < 0)
+		{
+			dev_err(&client->dev, "Reading Nunchuk register failed\n");
+			while( (ret = handshake(client)) < 0)
+			{
+				mdelay(10);
+				pr_info("Retrying\n");
+			}
+
+		}
 		if(memcmp(&(pdata->state),
 			  &new_state, sizeof(struct nunchuk_state) ))
 		{
