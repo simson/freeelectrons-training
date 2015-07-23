@@ -100,9 +100,10 @@ static int nunchuk_display_state(struct nunchuk_state *n_state)
 static int nunchuk_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
+	struct nunchuk_info* pdata;
 	/* initialize device */
 	handshake(client);
-	struct nunchuk_info* pdata = kmalloc(sizeof(struct nunchuk_info), GFP_KERNEL);
+	pdata = kmalloc(sizeof(struct nunchuk_info), GFP_KERNEL);
 	pdata->idx = ++last_idx;
 	/* register to a kernel framework */
 	i2c_set_clientdata(client, pdata);
