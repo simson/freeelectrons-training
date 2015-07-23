@@ -32,47 +32,49 @@ struct nunchuk_state {
 	char z_pressed;
 };
 
-struct nunchuk_info {
+struct nunchuk_dev {
+	struct input_polled_dev * polled_input;
+	struct i2c_client *i2c_client;
 	int idx;
 	struct nunchuk_state state;
 };
 
-static int handshake(struct i2c_client *client)
+static int handshake(struct nunchuk_dev *dev)
 {
 	int ret;
 	char uncrypted_msg[] = { 0xf0 , 0x55 };
 	char init_msg[] = { 0xfb , 0x00 };
-		/* Send the uncrypted communication message */
-	ret = i2c_master_send(client, uncrypted_msg, 2);
+	/* Send the uncrypted communication message */
+	ret = i2c_master_send(dev->i2c_client, uncrypted_msg, 2);
 	if (ret != 2) {
-		dev_err(&client->dev,"I2c send failed (%d)\n",ret);
+		dev_err(&dev->i2c_client->dev,"I2c send failed (%d)\n",ret);
 		return ret < 0 ? ret : -EIO;
 	}
 	udelay(1000);
 	/*Complete the init */
-	ret = i2c_master_send(client, init_msg, 2);
+	ret = i2c_master_send(dev->i2c_client, init_msg, 2);
 	if (ret != 2) {
-		dev_err(&client->dev,"I2c send failed (%d)\n",ret);
+		dev_err(&dev->i2c_client->dev,"I2c send failed (%d)\n",ret);
 		return ret < 0 ? ret : -EIO;
 	}
 	return 0;
 }
 
-static int nunchuk_read_registers(struct i2c_client *client, struct nunchuk_state* n_state)
+static int nunchuk_read_registers(struct nunchuk_dev *dev, struct nunchuk_state* n_state)
 {
 	char read_msg[] = { 0x00 };
 	char state[6] = { 0x00 };
 	int ret;
 	mdelay(10);
-	ret = i2c_master_send(client, read_msg, 1);
+	ret = i2c_master_send(dev->i2c_client, read_msg, 1);
 	if (ret != 1) {
-		dev_err(&client->dev,"I2c send failed (%d)\n",ret);
+		dev_err(&dev->i2c_client->dev,"I2c send failed (%d)\n",ret);
 		return ret < 0 ? ret : -EIO;
 	}
 	mdelay(10);
-	ret = i2c_master_recv(client, state, 6);
+	ret = i2c_master_recv(dev->i2c_client, state, 6);
 	if (ret != 6) {
-		dev_err(&client->dev,"I2c send failed (%d)\n",ret);
+		dev_err(&dev->i2c_client->dev,"I2c send failed (%d)\n",ret);
 		return ret < 0 ? ret : -EIO;
 	}
 	n_state->x_pos = state[0] ;
@@ -103,10 +105,16 @@ static int nunchuk_probe(struct i2c_client *client,
 {
 	struct input_polled_dev* polled_input;
 	struct input_dev * input;
-	struct nunchuk_info* pdata;
+	struct nunchuk_dev* nunchuk;
 	struct nunchuk_state new_state;
 	int ret;
 
+	nunchuk = devm_kzalloc(&client->dev, sizeof(struct nunchuk_dev), GFP_KERNEL);
+	if(!nunchuk)
+	{
+		dev_err(&client->dev, "Failed to allocate memory\n");
+		return -ENOMEM;
+	}
 	polled_input = input_allocate_polled_device();
 	if (polled_input == NULL)
 		goto out_nofree;
@@ -114,42 +122,46 @@ static int nunchuk_probe(struct i2c_client *client,
 	if( input_register_polled_device(polled_input) < 0)
 		goto out_input_polled_device;
 
-	/* initialize device */
-	handshake(client);
-	pdata = kmalloc(sizeof(struct nunchuk_info), GFP_KERNEL);
-	if (pdata == NULL)
-		goto out_input_polled_device;
-	pdata->idx = ++last_idx;
+	nunchuk->i2c_client = client;
+	nunchuk->polled_input= polled_input;
+	polled_input->private = nunchuk;
 	/* register to a kernel framework */
-	i2c_set_clientdata(client, pdata);
-	pr_alert("Nunchuk detected id : %d/%d\n",pdata->idx,last_idx);
+	i2c_set_clientdata(client, nunchuk);
+	input = polled_input->input;
+	input->dev.parent = &client->dev;
+
+	nunchuk->idx = ++last_idx;
+	pr_info("Nunchuk detected id : %d/%d\n",nunchuk->idx,last_idx);
+
+	/* initialize device */
+	handshake(nunchuk);
 	while(1){
-		if( (ret = nunchuk_read_registers(client, &(new_state))) < 0)
+		if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
 		{
 			dev_err(&client->dev, "Reading Nunchuk register failed\n");
-			while( (ret = handshake(client)) < 0)
+			while( (ret = handshake(nunchuk)) < 0)
 			{
 				mdelay(10);
 				pr_info("Retrying\n");
 			}
 
 		}
-		if( (ret = nunchuk_read_registers(client, &(new_state))) < 0)
+		if( (ret = nunchuk_read_registers(nunchuk, &(new_state))) < 0)
 		{
 			dev_err(&client->dev, "Reading Nunchuk register failed\n");
-			while( (ret = handshake(client)) < 0)
+			while( (ret = handshake(nunchuk)) < 0)
 			{
 				mdelay(10);
 				pr_info("Retrying\n");
 			}
 
 		}
-		if(memcmp(&(pdata->state),
+		if(memcmp(&(nunchuk->state),
 			  &new_state, sizeof(struct nunchuk_state) ))
 		{
-			memcpy(&(pdata->state), &new_state,
+			memcpy(&(nunchuk->state), &new_state,
 			       sizeof(struct nunchuk_state));
-			nunchuk_display_state(&(pdata->state));
+			nunchuk_display_state(&(nunchuk->state));
 		}
 
 		mdelay(1);
@@ -165,9 +177,8 @@ out_nofree:
 
 static int nunchuk_remove(struct i2c_client *client)
 {
-	struct nunchuk_info* pdata = i2c_get_clientdata(client);
-	pr_info("Nunchuk will be removed id : %d/%d\n",pdata->idx,last_idx);
-	kfree(pdata);
+	struct nunchuk_dev* nunchuk = i2c_get_clientdata(client);
+	pr_info("Nunchuk will be removed id : %d/%d\n",nunchuk->idx,last_idx);
 	last_idx--;
 	pr_info("It remains %d nunchunk connected\n", last_idx);
 	/* unregister device from kernel framework */
