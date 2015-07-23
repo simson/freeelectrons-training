@@ -182,6 +182,7 @@ static int nunchuk_remove(struct i2c_client *client)
 	last_idx--;
 	pr_info("It remains %d nunchunk connected\n", last_idx);
 	/* unregister device from kernel framework */
+	input_register_polled_device(nunchuk->polled_input);
 	/* shut down the device */
 	return 0;
 }
