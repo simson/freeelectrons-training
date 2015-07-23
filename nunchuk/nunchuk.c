@@ -45,15 +45,15 @@ static int handshake(struct i2c_client *client)
 		/* Send the uncrypted communication message */
 	ret = i2c_master_send(client, uncrypted_msg, 2);
 	if (ret != 2) {
-		pr_alert("I2c transfer failed\n");
-		return -EIO;
+		dev_err(&client->dev,"I2c send failed (%d)\n",ret);
+		return ret < 0 ? ret : -EIO;
 	}
 	udelay(1000);
 	/*Complete the init */
 	ret = i2c_master_send(client, init_msg, 2);
 	if (ret != 2) {
-		pr_alert("I2c transfer failed\n");
-		return -EIO;
+		dev_err(&client->dev,"I2c send failed (%d)\n",ret);
+		return ret < 0 ? ret : -EIO;
 	}
 	return 0;
 }
@@ -66,14 +66,14 @@ static int nunchuk_read_registers(struct i2c_client *client, struct nunchuk_stat
 	mdelay(10);
 	ret = i2c_master_send(client, read_msg, 1);
 	if (ret != 1) {
-		pr_alert("I2c transfer failed\n");
-		return -EIO;
+		dev_err(&client->dev,"I2c send failed (%d)\n",ret);
+		return ret < 0 ? ret : -EIO;
 	}
 	mdelay(10);
 	ret = i2c_master_recv(client, state, 6);
 	if (ret != 6) {
-		pr_alert("I2c transfer failed\n");
-		return -EIO;
+		dev_err(&client->dev,"I2c send failed (%d)\n",ret);
+		return ret < 0 ? ret : -EIO;
 	}
 	n_state->x_pos = state[0] ;
 	n_state->y_pos = state[1];
