@@ -157,8 +157,6 @@ static int nunchuk_probe(struct i2c_client *client,
 
 	return 0;
 
-out_pdata:
-	kfree(pdata);
 out_input_polled_device:
 	input_free_polled_device(polled_input);
 out_nofree:
