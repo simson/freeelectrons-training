@@ -248,7 +248,6 @@ static int nunchuk_remove(struct i2c_client *client)
 		return -ENOMEM;
 	}
 
-	pr_info("A = polled_input %p\n",nunchuk->polled_input->input);
 	input_unregister_polled_device(nunchuk->polled_input);
 	input_free_polled_device(nunchuk->polled_input);
 	/* shut down the device */
