@@ -7,6 +7,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/serial_reg.h>
 #include <linux/miscdevice.h>
+#include <linux/fs.h>
 
 static const struct i2c_device_id fe_serial_id[] = {
 	{ "free-electrons,serial", 0 },
@@ -23,6 +24,14 @@ static const struct of_device_id fe_serial_dt_ids[] = {
 
 MODULE_DEVICE_TABLE(of, fe_serial_dt_ids);
 #endif
+ssize_t feserial_read(struct file *f, char __user *buf, size_t sz, loff_t *off);
+ssize_t feserial_write(struct file *f, const char __user *buf, size_t sz, loff_t *off);
+
+static const struct file_operations feserial_ops = {
+	.owner		= THIS_MODULE,
+	.write		= feserial_write,
+	.read		= feserial_read,
+};
 
 struct feserial_dev {
 	void __iomem *regs;
@@ -51,7 +60,7 @@ static void feserial_write_char(struct feserial_dev *feserial, char c)
 	feserial_reg_write(feserial,c, UART_TX);
 }
 
-static void feserial_write_string(struct feserial_dev *feserial, char* str, int n)
+static void feserial_write_string(struct feserial_dev *feserial, const char* str, int n)
 {
 	int i;
 	for(i=0; i < n ; i++)
@@ -66,9 +75,12 @@ ssize_t feserial_read(struct file *f, char __user *buf, size_t sz, loff_t *off)
 	return -EINVAL;
 }
 
-ssize_t foo_write(struct file *f, const char __user *buf, size_t sz, loff_t *off)
+ssize_t feserial_write(struct file *f, const char __user *buf, size_t sz, loff_t *off)
 {
-	return -EINVAL;
+	struct feserial_dev *dev = container_of(f->private_data, struct
+						feserial_dev, miscdev);
+	feserial_write_string(dev, buf, sz);
+	return sz;
 }
 
 static int feserial_probe(struct platform_device *pdev)
@@ -112,6 +124,7 @@ static int feserial_probe(struct platform_device *pdev)
 
 	/* Init miscdevice */
 	feserial->miscdev.minor = MISC_DYNAMIC_MINOR;
+	feserial->miscdev.fops	= &feserial_ops;
 	feserial->miscdev.name = kasprintf(GFP_KERNEL,"feserial-%x", res->start);
 
 	misc_register(&feserial->miscdev);
@@ -131,6 +144,7 @@ static int feserial_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
+
 
 
 static struct platform_driver feserial_driver = {
