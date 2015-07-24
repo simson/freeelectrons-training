@@ -1,10 +1,12 @@
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/io.h>
 #include <linux/pm_runtime.h>
 #include <linux/serial_reg.h>
+#include <linux/miscdevice.h>
 
 static const struct i2c_device_id fe_serial_id[] = {
 	{ "free-electrons,serial", 0 },
@@ -25,6 +27,7 @@ MODULE_DEVICE_TABLE(of, fe_serial_dt_ids);
 struct feserial_dev {
 	void __iomem *regs;
 	struct platform_device *dev;
+	struct miscdevice miscdev;
 };
 
 static unsigned int feserial_reg_read(struct feserial_dev *feserial_dev, int offset)
@@ -57,6 +60,17 @@ static void feserial_write_string(struct feserial_dev *feserial, char* str, int 
 	}
 };
 
+ssize_t feserial_read(struct file *f, char __user *buf, size_t sz, loff_t *off)
+{
+
+	return -EINVAL;
+}
+
+ssize_t foo_write(struct file *f, const char __user *buf, size_t sz, loff_t *off)
+{
+	return -EINVAL;
+}
+
 static int feserial_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -73,6 +87,9 @@ static int feserial_probe(struct platform_device *pdev)
 	}
 	feserial->regs = devm_ioremap_resource(&pdev->dev,res);
 	pr_info("Start = 0x%x : 0x%p\n",res->start, feserial->regs);
+
+
+	platform_set_drvdata(pdev, feserial);
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
@@ -92,12 +109,25 @@ static int feserial_probe(struct platform_device *pdev)
 	feserial_reg_write(feserial, 0x00, UART_OMAP_MDR1);
 
 	feserial_write_string(feserial, "deadbeef", 8);
+
+	/* Init miscdevice */
+	feserial->miscdev.minor = MISC_DYNAMIC_MINOR;
+	feserial->miscdev.name = kasprintf(GFP_KERNEL,"feserial-%x", res->start);
+
+	misc_register(&feserial->miscdev);
+
 	return 0;
 }
 
 static int feserial_remove(struct platform_device *pdev)
 {
 	pr_info("Called feserial_remove\n");
+	struct feserial_dev *feserial = platform_get_drvdata(pdev);
+	feserial_write_string(feserial, "beefdead", 8);
+
+	/*Free and unregister */
+	kfree(feserial->miscdev.name);
+	misc_deregister(&feserial->miscdev);
 	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
